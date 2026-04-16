@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Meld Pacman Overlay</title>
+    <script src="https://cdn.jsdelivr.net/npm/@meldstudio/elements-api@latest"></script>
+    <style>
+        body { margin: 0; overflow: hidden; background: transparent; font-family: sans-serif; }
+        canvas { display: block; image-rendering: pixelated; }
+        #score-board {
+            position: absolute; top: 10px; left: 10px;
+            color: #00FF41; font-family: 'Courier New', monospace;
+            font-size: 20px; background: rgba(0,0,0,0.5); padding: 5px 10px;
+        }
+    </style>
+</head>
+<body>
+    <div id="score-board">CHAT SCORE: <span id="val">0</span></div>
+    <canvas id="game"></canvas>
+
+<script>
+const canvas = document.getElementById('game');
+const ctx = canvas.getContext('2d');
+const scoreVal = document.getElementById('val');
+
+// Configuración del Laberinto
+const TILE = 24;
+const map = [
+    [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
+    [1,0,0,0,0,0,1,0,0,0,0,0,0,0,1],
+    [1,0,1,1,0,0,1,0,0,1,1,0,1,0,1],
+    [1,0,0,0,0,0,0,0,0,0,0,0,0,0,1],
+    [1,1,1,0,1,1,0,1,1,0,1,1,1,1,1],
+    [1,0,0,0,0,0,0,0,0,0,0,0,0,0,1],
+    [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1]
+];
+
+canvas.width = map[0].length * TILE;
+canvas.height = map.length * TILE;
+
+let players = {};
+let score = 0;
+
+// Dibujar el juego
+function draw() {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    
+    // Dibujar mapa
+    for(let y=0; y<map.length; y++){
+        for(let x=0; x<map[y].length; x++){
+            if(map[y][x] === 1) {
+                ctx.fillStyle = '#1919A6';
+                ctx.fillRect(x*TILE, y*TILE, TILE, TILE);
+            } else if(map[y][x] === 0) {
+                ctx.fillStyle = '#fff';
+                ctx.beginPath();
+                ctx.arc(x*TILE + TILE/2, y*TILE + TILE/2, 2, 0, Math.PI*2);
+                ctx.fill();
+            }
+        }
+    }
+
+    // Dibujar jugadores (Pac-mans)
+    for(let id in players) {
+        let p = players[id];
+        ctx.fillStyle = p.color;
+        ctx.beginPath();
+        ctx.arc(p.x*TILE + TILE/2, p.y*TILE + TILE/2, TILE/2 - 2, 0.2 * Math.PI, 1.8 * Math.PI);
+        ctx.lineTo(p.x*TILE + TILE/2, p.y*TILE + TILE/2);
+        ctx.fill();
+    }
+    requestAnimationFrame(draw);
+}
+
+// Lógica de movimiento
+function handleCommand(user, cmd) {
+    if(!players[user]) {
+        players[user] = { x: 1, y: 1, color: `hsl(${Math.random()*360}, 100%, 50%)` };
+    }
+    
+    let p = players[user];
+    let oldX = p.x;
+    let oldY = p.y;
+
+    if(cmd.includes('up')) p.y--;
+    if(cmd.includes('down')) p.y++;
+    if(cmd.includes('left')) p.x--;
+    if(cmd.includes('right')) p.x++;
+
+    // Colisión con paredes
+    if(map[p.y] && map[p.y][p.x] === 1 || p.y < 0 || p.x < 0) {
+        p.x = oldX; p.y = oldY;
+    }
+
+    // Comer bolitas
+    if(map[p.y] && map[p.y][p.x] === 0) {
+        map[p.y][p.x] = 2;
+        score += 10;
+        scoreVal.innerText = score;
+    }
+}
+
+// --- CONEXIÓN NATIVA CON MELD ---
+if (window.Meld) {
+    Meld.on('subscribe', (data) => {
+        // Alguien se suscribe = Pacman nuevo con color especial
+        handleCommand(data.username, 'right');
+    });
+
+    Meld.on('message', (data) => {
+        const msg = data.text.toLowerCase();
+        // Si el mensaje contiene una dirección, el Pacman de ese usuario se mueve
+        if(['up', 'down', 'left', 'right'].some(d => msg.includes(d))) {
+            handleCommand(data.username, msg);
+        }
+    });
+}
+
+draw();
+</script>
+</body>
+</html>
