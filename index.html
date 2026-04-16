@@ -2,24 +2,24 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <title>BrixsDNA Pacman - Direct Link</title>
+    <title>BrixsDNA Pacman - Universal</title>
     <style>
         body { margin: 0; overflow: hidden; background: transparent; font-family: sans-serif; }
         #wrapper { display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; }
         canvas { background: #000; border: 3px solid #00FF00; border-radius: 10px; }
-        #status { color: #00FF00; background: rgba(0,0,0,0.8); padding: 5px; margin-bottom: 5px; font-size: 12px; }
+        #debug { color: #00FF00; background: rgba(0,0,0,0.8); padding: 5px; font-size: 10px; position: fixed; top: 0; }
     </style>
 </head>
 <body>
+    <div id="debug">SISTEMA INICIADO - ESPERANDO SEÑAL...</div>
     <div id="wrapper">
-        <div id="status">ESTADO: ESPERANDO CHAT DE MELD...</div>
         <canvas id="game"></canvas>
     </div>
 
 <script>
 const canvas = document.getElementById('game');
 const ctx = canvas.getContext('2d');
-const statusDiv = document.getElementById('status');
+const debug = document.getElementById('debug');
 
 const TILE = 24;
 const map = [[1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],[1,0,0,0,0,0,1,0,0,0,0,0,0,0,1],[1,0,1,1,0,0,1,0,1,1,1,0,1,0,1],[1,0,0,0,0,0,0,0,0,0,0,0,0,0,1],[1,1,1,0,1,1,0,1,1,0,1,1,1,1,1],[1,0,0,0,0,0,0,0,0,0,0,0,0,0,1],[1,1,1,1,1,1,1,1,1,1,1,1,1,1,1]];
@@ -36,52 +36,45 @@ function draw() {
     }
     for(let id in players) {
         let p = players[id];
-        ctx.fillStyle = p.color; ctx.beginPath(); 
-        ctx.arc(p.x*TILE+TILE/2, p.y*TILE+TILE/2, TILE/2-2, 0.2*Math.PI, 1.8*Math.PI);
+        ctx.fillStyle = p.color; ctx.beginPath(); ctx.arc(p.x*TILE+TILE/2, p.y*TILE+TILE/2, TILE/2-2, 0.2*Math.PI, 1.8*Math.PI);
         ctx.lineTo(p.x*TILE+TILE/2, p.y*TILE+TILE/2); ctx.fill();
         ctx.fillStyle = "#00FF00"; ctx.font = "bold 10px sans-serif"; ctx.fillText(id, p.x*TILE, p.y*TILE-5);
     }
     requestAnimationFrame(draw);
 }
 
-// LÓGICA DE MOVIMIENTO
-window.executeMove = function(user, text) {
+function move(user, text) {
     const msg = text.toLowerCase().trim();
-    statusDiv.innerText = `ÚLTIMO: ${user} escribió ${msg}`;
-    
+    debug.innerText = `RECIBIDO: ${user} -> ${msg}`;
     if(!players[user]) players[user] = { x: 1, y: 1, color: `hsl(${Math.random()*360}, 100%, 50%)` };
     let p = players[user], old = {x: p.x, y: p.y};
-    
-    if(msg.includes('arriba')) p.y--; 
-    else if(msg.includes('abajo')) p.y++;
-    else if(msg.includes('izquierda')) p.x--; 
-    else if(msg.includes('derecha')) p.x++;
-    
+    if(msg.includes('arriba')) p.y--; else if(msg.includes('abajo')) p.y++;
+    else if(msg.includes('izquierda')) p.x--; else if(msg.includes('derecha')) p.x++;
     if(map[p.y] && map[p.y][p.x] === 1 || p.y < 0 || p.x < 0) { p.x = old.x; p.y = old.y; }
     if(map[p.y] && map[p.y][p.x] === 0) map[p.y][p.x] = 2;
+}
+
+// --- CONECTOR PARA MELD STUDIO ---
+// Meld usa eventos personalizados. Escuchamos todos los posibles.
+const handleMeldEvent = (e) => {
+    const data = e.detail || e.data || e;
+    if (data && data.text) {
+        move(data.username || 'Anon', data.text);
+    }
 };
 
-// --- EL "PUENTE" DIRECTO ---
-// Escuchamos CUALQUIER mensaje que Meld mande a la ventana
-window.addEventListener('message', function(event) {
-    // Meld envía los datos del chat en un formato específico
-    // Intentamos capturar tanto el formato de la librería como el nativo
-    const data = event.data;
-    
-    if (data && (data.type === 'message' || data.event === 'message')) {
-        const username = data.username || (data.detail && data.detail.username);
-        const text = data.text || (data.detail && data.detail.text);
-        
-        if (username && text) {
-            window.executeMove(username, text);
-        }
+window.addEventListener('meldMessage', handleMeldEvent);
+window.addEventListener('message', (e) => {
+    // Si Meld envía datos vía postMessage
+    if(e.data && (e.data.type === 'message' || e.data.event === 'message')) {
+        move(e.data.username || e.data.author, e.data.text || e.data.body);
     }
 });
 
-// Soporte para flechas (solo para pruebas tuyas)
+// Teclado para Safari
 window.addEventListener('keydown', (e) => {
-    const keys = {ArrowUp:'arriba', ArrowDown:'abajo', ArrowLeft:'izquierda', ArrowRight:'derecha'};
-    if(keys[e.key]) window.executeMove('Streamer', keys[e.key]);
+    const k = {ArrowUp:'arriba', ArrowDown:'abajo', ArrowLeft:'izquierda', ArrowRight:'derecha'}[e.key];
+    if(k) move('Yo', k);
 });
 
 draw();
