@@ -2,27 +2,21 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <title>Pacman Chat BrixsDNA - Green Version</title>
+    <title>BrixsDNA Pacman - Ultra Compatible</title>
     <script src="https://cdn.jsdelivr.net/npm/@meldstudio/elements-api@latest"></script>
     <style>
         body { margin: 0; overflow: hidden; background: transparent; font-family: 'Courier New', monospace; }
         #canvas-container { display: flex; flex-direction: column; justify-content: center; align-items: center; height: 100vh; }
-        canvas { 
-            background: rgba(0, 0, 0, 0.9); 
-            border: 3px solid #00FF00; /* Borde exterior verde */
-            border-radius: 8px;
-            box-shadow: 0 0 15px rgba(0, 255, 0, 0.4); /* Brillo verde suave */
-        }
+        canvas { background: rgba(0, 0, 0, 0.9); border: 3px solid #00FF00; border-radius: 8px; }
         #status-bar { 
-            position: absolute; top: 0; width: 100%; 
-            color: #00FF00; text-align: center; font-size: 14px;
-            background: rgba(0,0,0,0.6); padding: 5px 0;
-            border-bottom: 1px solid #00FF00;
+            position: absolute; top: 0; width: 100%; color: #00FF00; 
+            text-align: center; font-size: 14px; background: rgba(0,0,0,0.8); 
+            padding: 8px 0; border-bottom: 2px solid #00FF00; z-index: 10;
         }
     </style>
 </head>
 <body>
-    <div id="status-bar">CONECTANDO CON EL CHAT DE MELD...</div>
+    <div id="status-bar">SISTEMA INICIADO - ESPERANDO CHAT...</div>
     <div id="canvas-container">
         <canvas id="game"></canvas>
     </div>
@@ -33,9 +27,6 @@ const ctx = canvas.getContext('2d');
 const statusBar = document.getElementById('status-bar');
 
 const TILE = 24;
-// Título del juego
-const GAME_TITLE = "CHAT PAC-MAN";
-
 const map = [
     [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
     [1,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,1],
@@ -46,100 +37,78 @@ const map = [
     [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1]
 ];
 
-// Ajuste del tamaño del canvas para incluir el título
 canvas.width = map[0].length * TILE;
-canvas.height = (map.length + 2) * TILE; // Añadimos espacio arriba para el título
+canvas.height = (map.length + 2) * TILE;
 
 let players = {};
 
 function draw() {
     ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-    // 1. Dibujar el Título (Verde Neón)
     ctx.fillStyle = '#00FF00';
-    ctx.font = 'bold 24px "Courier New", monospace';
+    ctx.font = 'bold 24px monospace';
     ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
-    ctx.fillText(GAME_TITLE, canvas.width / 2, TILE); // Centrado arriba
+    ctx.fillText("CHAT PAC-MAN", canvas.width / 2, TILE + 5);
 
-    // 2. Dibujar el Mapa (Muros Verdes)
-    const yOffset = TILE * 2; // Desplazamiento para no tapar el título
+    const yOff = TILE * 2;
     for(let y=0; y<map.length; y++){
         for(let x=0; x<map[y].length; x++){
-            const drawX = x * TILE;
-            const drawY = y * TILE + yOffset;
             if(map[y][x] === 1) { 
-                ctx.fillStyle = '#00FF00'; // Muros VERDES
-                ctx.fillRect(drawX, drawY, TILE, TILE); 
-            }
-            else if(map[y][x] === 0) { 
-                ctx.fillStyle = '#fff'; // Comida (blanca)
-                ctx.beginPath(); 
-                ctx.arc(drawX + TILE/2, drawY + TILE/2, 2, 0, 6.28); 
-                ctx.fill(); 
+                ctx.fillStyle = '#00FF00'; 
+                ctx.fillRect(x*TILE, y*TILE+yOff, TILE, TILE); 
+            } else if(map[y][x] === 0) {
+                ctx.fillStyle = '#fff'; ctx.beginPath();
+                ctx.arc(x*TILE+TILE/2, y*TILE+yOff+TILE/2, 2, 0, 6.28); ctx.fill();
             }
         }
     }
 
-    // 3. Dibujar Jugadores (Colores aleatorios)
     for(let id in players) {
         let p = players[id];
-        const playerDrawX = p.x * TILE;
-        const playerDrawY = p.y * TILE + yOffset;
-        
         ctx.fillStyle = p.color;
         ctx.beginPath();
-        // Boca del Pacman
-        ctx.arc(playerDrawX + TILE/2, playerDrawY + TILE/2, TILE/2 - 2, 0.2*Math.PI, 1.8*Math.PI);
-        ctx.lineTo(playerDrawX + TILE/2, playerDrawY + TILE/2);
-        ctx.fill();
-
-        // Nombre del usuario (Verde)
-        ctx.fillStyle = "#00FF00"; 
-        ctx.font = "bold 12px sans-serif"; 
-        ctx.textAlign = "center";
-        ctx.fillText(id, playerDrawX + TILE/2, playerDrawY - 5);
+        ctx.arc(p.x*TILE+TILE/2, p.y*TILE+yOff+TILE/2, TILE/2-2, 0.2*Math.PI, 1.8*Math.PI);
+        ctx.lineTo(p.x*TILE+TILE/2, p.y*TILE+yOff+TILE/2); ctx.fill();
+        ctx.fillStyle = "#00FF00"; ctx.font = "bold 10px sans-serif";
+        ctx.fillText(id, p.x*TILE+TILE/2, p.y*TILE+yOff-5);
     }
     requestAnimationFrame(draw);
 }
 
-function handleChat(user, msg) {
+function processMessage(user, text) {
+    const msg = text.toLowerCase();
     if(!players[user]) {
-        // Color aleatorio para el Pacman del usuario
-        players[user] = { x: Math.floor(map[0].length/2), y: Math.floor(map.length/2), color: `hsl(${Math.random()*360}, 100%, 50%)` };
+        players[user] = { x: 1, y: 1, color: `hsl(${Math.random()*360}, 100%, 50%)` };
     }
     let p = players[user];
     let old = {x: p.x, y: p.y};
-
-    // Soporte para comandos múltiples
     if(msg.includes('arriba')) p.y--;
     if(msg.includes('abajo')) p.y++;
     if(msg.includes('izquierda')) p.x--;
     if(msg.includes('derecha')) p.x++;
-
-    // Colisión con muros y límites
     if(map[p.y] && map[p.y][p.x] === 1 || p.y < 0 || p.x < 0) { p.x = old.x; p.y = old.y; }
-    // Comer bolitas
     if(map[p.y] && map[p.y][p.x] === 0) map[p.y][p.x] = 2;
+    statusBar.innerText = `ÚLTIMO MOVIMIENTO: ${user.toUpperCase()}`;
 }
 
-// --- CONEXIÓN AUTOMÁTICA CON MELD ---
-function connectToMeld() {
-    if (window.Meld) {
-        // Si detecta Meld, activa el listener del chat
-        statusBar.innerText = "¡CHAT CONECTADO! Comandos: ARRIBA, ABAJO, IZQUIERDA, DERECHA";
-        Meld.on('message', (data) => {
-            const m = data.text.toLowerCase();
-            handleChat(data.username, m);
-        });
-    } else {
-        // Si no detecta Meld (ej: abriéndolo en Safari), reintenta cada 0.5s
-        statusBar.innerText = "ESPERANDO CONEXIÓN DE MELD...";
-        setTimeout(connectToMeld, 500);
+// --- ESCUCHA DE EVENTOS MULTI-CANAL ---
+
+// 1. Vía Librería Oficial
+if (window.Meld) {
+    Meld.on('message', (data) => processMessage(data.username, data.text));
+}
+
+// 2. Vía Eventos Globales (Por si la librería falla)
+window.addEventListener('message', (event) => {
+    if (event.data && event.data.type === 'message') {
+        processMessage(event.data.username, event.data.text);
     }
-}
+});
 
-connectToMeld();
+// 3. Autocomprobación
+setInterval(() => {
+    if(window.Meld) statusBar.innerText = "¡CONECTADO A MELD! ESPERANDO COMANDOS...";
+}, 2000);
+
 draw();
 </script>
 </body>
