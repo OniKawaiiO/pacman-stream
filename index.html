@@ -2,24 +2,25 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <title>BrixsDNA Pacman Final</title>
-    <script src="https://cdn.jsdelivr.net/npm/@meldstudio/elements-api@latest"></script>
+    <title>BrixsDNA Pacman - Direct Link</title>
     <style>
-        body { margin: 0; overflow: hidden; background: transparent; font-family: 'Courier New', monospace; }
+        body { margin: 0; overflow: hidden; background: transparent; font-family: sans-serif; }
         #wrapper { display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; }
         canvas { background: #000; border: 3px solid #00FF00; border-radius: 10px; }
-        #info { color: #00FF00; margin-bottom: 10px; font-weight: bold; background: rgba(0,0,0,0.7); padding: 5px; }
+        #status { color: #00FF00; background: rgba(0,0,0,0.8); padding: 5px; margin-bottom: 5px; font-size: 12px; }
     </style>
 </head>
 <body>
     <div id="wrapper">
-        <div id="info">COMANDOS: ARRIBA, ABAJO, IZQUIERDA, DERECHA</div>
+        <div id="status">ESTADO: ESPERANDO CHAT DE MELD...</div>
         <canvas id="game"></canvas>
     </div>
 
 <script>
 const canvas = document.getElementById('game');
 const ctx = canvas.getContext('2d');
+const statusDiv = document.getElementById('status');
+
 const TILE = 24;
 const map = [[1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],[1,0,0,0,0,0,1,0,0,0,0,0,0,0,1],[1,0,1,1,0,0,1,0,1,1,1,0,1,0,1],[1,0,0,0,0,0,0,0,0,0,0,0,0,0,1],[1,1,1,0,1,1,0,1,1,0,1,1,1,1,1],[1,0,0,0,0,0,0,0,0,0,0,0,0,0,1],[1,1,1,1,1,1,1,1,1,1,1,1,1,1,1]];
 canvas.width = map[0].length * TILE; canvas.height = map.length * TILE;
@@ -28,7 +29,7 @@ let players = {};
 function draw() {
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     for(let y=0; y<map.length; y++){
-        for(let x=0; x<map[x].length; x++){
+        for(let x=0; x<map[y].length; x++){
             if(map[y][x] === 1) { ctx.fillStyle = '#00FF00'; ctx.fillRect(x*TILE, y*TILE, TILE, TILE); }
             else if(map[y][x] === 0) { ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.arc(x*TILE+TILE/2, y*TILE+TILE/2, 2, 0, 6.28); ctx.fill(); }
         }
@@ -43,9 +44,11 @@ function draw() {
     requestAnimationFrame(draw);
 }
 
-// FUNCIÓN DE MOVIMIENTO GLOBAL
-window.moveUser = function(user, text) {
+// LÓGICA DE MOVIMIENTO
+window.executeMove = function(user, text) {
     const msg = text.toLowerCase().trim();
+    statusDiv.innerText = `ÚLTIMO: ${user} escribió ${msg}`;
+    
     if(!players[user]) players[user] = { x: 1, y: 1, color: `hsl(${Math.random()*360}, 100%, 50%)` };
     let p = players[user], old = {x: p.x, y: p.y};
     
@@ -58,21 +61,28 @@ window.moveUser = function(user, text) {
     if(map[p.y] && map[p.y][p.x] === 0) map[p.y][p.x] = 2;
 };
 
-// 1. ESCUCHA DE TECLADO (Flechas)
-window.addEventListener('keydown', (e) => {
-    const keys = {ArrowUp:'arriba', ArrowDown:'abajo', ArrowLeft:'izquierda', ArrowRight:'derecha'};
-    if(keys[e.key]) window.moveUser('Streamer', keys[e.key]);
+// --- EL "PUENTE" DIRECTO ---
+// Escuchamos CUALQUIER mensaje que Meld mande a la ventana
+window.addEventListener('message', function(event) {
+    // Meld envía los datos del chat en un formato específico
+    // Intentamos capturar tanto el formato de la librería como el nativo
+    const data = event.data;
+    
+    if (data && (data.type === 'message' || data.event === 'message')) {
+        const username = data.username || (data.detail && data.detail.username);
+        const text = data.text || (data.detail && data.detail.text);
+        
+        if (username && text) {
+            window.executeMove(username, text);
+        }
+    }
 });
 
-// 2. ESCUCHA DE MELD (Chat)
-if (window.Meld) {
-    Meld.on('message', (data) => {
-        window.moveUser(data.username, data.text);
-    });
-}
-
-// 3. AUTO-FOCO (Para que el teclado funcione al hacer clic)
-window.addEventListener('mousedown', () => window.focus());
+// Soporte para flechas (solo para pruebas tuyas)
+window.addEventListener('keydown', (e) => {
+    const keys = {ArrowUp:'arriba', ArrowDown:'abajo', ArrowLeft:'izquierda', ArrowRight:'derecha'};
+    if(keys[e.key]) window.executeMove('Streamer', keys[e.key]);
+});
 
 draw();
 </script>
