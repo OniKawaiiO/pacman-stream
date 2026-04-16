@@ -2,22 +2,19 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <title>BrixsDNA Pacman - Final Test</title>
+    <title>BrixsDNA Pacman Final</title>
     <script src="https://cdn.jsdelivr.net/npm/@meldstudio/elements-api@latest"></script>
     <style>
-        body { margin: 0; overflow: hidden; background: transparent; font-family: sans-serif; }
+        body { margin: 0; overflow: hidden; background: transparent; font-family: 'Courier New', monospace; }
         #wrapper { display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; }
-        canvas { background: #000; border: 3px solid #00FF00; border-radius: 10px; box-shadow: 0 0 20px #00FF00; }
-        #test-btn { 
-            margin-top: 10px; padding: 10px 20px; background: #00FF00; color: #000; 
-            border: none; font-weight: bold; cursor: pointer; border-radius: 5px;
-        }
+        canvas { background: #000; border: 3px solid #00FF00; border-radius: 10px; }
+        #info { color: #00FF00; margin-bottom: 10px; font-weight: bold; background: rgba(0,0,0,0.7); padding: 5px; }
     </style>
 </head>
 <body>
     <div id="wrapper">
+        <div id="info">COMANDOS: ARRIBA, ABAJO, IZQUIERDA, DERECHA</div>
         <canvas id="game"></canvas>
-        <button id="test-btn">HACER CLIC PARA PROBAR MOVIMIENTO</button>
     </div>
 
 <script>
@@ -25,48 +22,57 @@ const canvas = document.getElementById('game');
 const ctx = canvas.getContext('2d');
 const TILE = 24;
 const map = [[1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],[1,0,0,0,0,0,1,0,0,0,0,0,0,0,1],[1,0,1,1,0,0,1,0,1,1,1,0,1,0,1],[1,0,0,0,0,0,0,0,0,0,0,0,0,0,1],[1,1,1,0,1,1,0,1,1,0,1,1,1,1,1],[1,0,0,0,0,0,0,0,0,0,0,0,0,0,1],[1,1,1,1,1,1,1,1,1,1,1,1,1,1,1]];
-canvas.width = map[0].length * TILE;
-canvas.height = map.length * TILE;
+canvas.width = map[0].length * TILE; canvas.height = map.length * TILE;
 let players = {};
 
 function draw() {
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     for(let y=0; y<map.length; y++){
-        for(let x=0; x<map[y].length; x++){
+        for(let x=0; x<map[x].length; x++){
             if(map[y][x] === 1) { ctx.fillStyle = '#00FF00'; ctx.fillRect(x*TILE, y*TILE, TILE, TILE); }
             else if(map[y][x] === 0) { ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.arc(x*TILE+TILE/2, y*TILE+TILE/2, 2, 0, 6.28); ctx.fill(); }
         }
     }
     for(let id in players) {
         let p = players[id];
-        ctx.fillStyle = p.color; ctx.beginPath(); ctx.arc(p.x*TILE+TILE/2, p.y*TILE+TILE/2, TILE/2-2, 0.2*Math.PI, 1.8*Math.PI);
+        ctx.fillStyle = p.color; ctx.beginPath(); 
+        ctx.arc(p.x*TILE+TILE/2, p.y*TILE+TILE/2, TILE/2-2, 0.2*Math.PI, 1.8*Math.PI);
         ctx.lineTo(p.x*TILE+TILE/2, p.y*TILE+TILE/2); ctx.fill();
-        ctx.fillStyle = "#00FF00"; ctx.font = "10px sans-serif"; ctx.fillText(id, p.x*TILE, p.y*TILE-5);
+        ctx.fillStyle = "#00FF00"; ctx.font = "bold 10px sans-serif"; ctx.fillText(id, p.x*TILE, p.y*TILE-5);
     }
     requestAnimationFrame(draw);
 }
 
-window.processMessage = function(user, text) {
+// FUNCIÓN DE MOVIMIENTO GLOBAL
+window.moveUser = function(user, text) {
     const msg = text.toLowerCase().trim();
     if(!players[user]) players[user] = { x: 1, y: 1, color: `hsl(${Math.random()*360}, 100%, 50%)` };
     let p = players[user], old = {x: p.x, y: p.y};
-    if(msg.includes('arriba')) p.y--; if(msg.includes('abajo')) p.y++;
-    if(msg.includes('izquierda')) p.x--; if(msg.includes('derecha')) p.x++;
+    
+    if(msg.includes('arriba')) p.y--; 
+    else if(msg.includes('abajo')) p.y++;
+    else if(msg.includes('izquierda')) p.x--; 
+    else if(msg.includes('derecha')) p.x++;
+    
     if(map[p.y] && map[p.y][p.x] === 1 || p.y < 0 || p.x < 0) { p.x = old.x; p.y = old.y; }
     if(map[p.y] && map[p.y][p.x] === 0) map[p.y][p.x] = 2;
 };
 
-// BOTÓN DE PRUEBA
-document.getElementById('test-btn').addEventListener('click', () => {
-    window.processMessage('Test', 'derecha');
+// 1. ESCUCHA DE TECLADO (Flechas)
+window.addEventListener('keydown', (e) => {
+    const keys = {ArrowUp:'arriba', ArrowDown:'abajo', ArrowLeft:'izquierda', ArrowRight:'derecha'};
+    if(keys[e.key]) window.moveUser('Streamer', keys[e.key]);
 });
 
-// ESCUCHA DE MELD
-window.addEventListener('load', () => {
-    if (window.Meld) {
-        Meld.on('message', (data) => window.processMessage(data.username, data.text));
-    }
-});
+// 2. ESCUCHA DE MELD (Chat)
+if (window.Meld) {
+    Meld.on('message', (data) => {
+        window.moveUser(data.username, data.text);
+    });
+}
+
+// 3. AUTO-FOCO (Para que el teclado funcione al hacer clic)
+window.addEventListener('mousedown', () => window.focus());
 
 draw();
 </script>
