@@ -2,59 +2,59 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <title>Meld Pacman Stream</title>
+    <title>Meld Interactive Pacman</title>
     <script src="https://cdn.jsdelivr.net/npm/@meldstudio/elements-api@latest"></script>
     <style>
         body { margin: 0; overflow: hidden; background: transparent; font-family: 'Courier New', monospace; }
-        canvas { display: block; image-rendering: pixelated; margin: auto; }
-        #ui {
-            position: absolute; top: 10px; left: 10px;
-            color: #00FF41; font-size: 18px;
-            background: rgba(0,0,0,0.7); padding: 10px;
-            border: 1px solid #00FF41; border-radius: 5px;
+        #game-container { display: flex; justify-content: center; align-items: center; height: 100vh; }
+        canvas { background: rgba(0, 0, 0, 0.85); border: 3px solid #1919A6; border-radius: 8px; box-shadow: 0 0 15px rgba(25, 25, 166, 0.5); }
+        #log-panel {
+            position: absolute; bottom: 20px; left: 20px;
+            color: #00FF41; background: rgba(0,0,0,0.8);
+            padding: 10px; font-size: 14px; border: 1px solid #00FF41;
+            max-height: 100px; overflow: hidden; width: 250px;
         }
     </style>
 </head>
 <body>
-    <div id="ui">
-        PUNTOS: <span id="score">0</span><br>
-        <small id="status">Esperando chat...</small>
+    <div id="log-panel">Esperando mensajes del chat...</div>
+    <div id="game-container">
+        <canvas id="pacmanCanvas"></canvas>
     </div>
-    <canvas id="game"></canvas>
 
 <script>
-const canvas = document.getElementById('game');
+const canvas = document.getElementById('pacmanCanvas');
 const ctx = canvas.getContext('2d');
-const scoreVal = document.getElementById('score');
-const statusText = document.getElementById('status');
+const logPanel = document.getElementById('log-panel');
 
-const TILE = 24;
+const TILE = 25;
+let players = {};
+
+// 1: Pared, 0: Punto, 2: Vacío
 const map = [
     [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
-    [1,0,0,0,0,0,1,0,0,0,0,0,1,0,0,0,0,0,1],
-    [1,0,1,1,0,0,1,0,1,1,1,0,1,0,0,1,1,0,1],
+    [1,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,1],
+    [1,0,1,1,0,1,1,1,0,1,0,1,1,1,0,1,1,0,1],
     [1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1],
-    [1,1,1,0,1,1,0,1,1,0,1,1,0,1,1,0,1,1,1],
-    [1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1],
+    [1,0,1,1,0,1,0,1,1,1,1,1,0,1,0,1,1,0,1],
+    [1,0,0,0,0,1,0,0,0,0,0,0,0,1,0,0,0,0,1],
     [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1]
 ];
 
 canvas.width = map[0].length * TILE;
 canvas.height = map.length * TILE;
 
-let players = {};
-let score = 0;
-
 function draw() {
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     
-    for(let y=0; y<map.length; y++){
-        for(let x=0; x<map[y].length; x++){
+    // Dibujar Mapa
+    for(let y=0; y < map.length; y++) {
+        for(let x=0; x < map[y].length; x++) {
             if(map[y][x] === 1) {
-                ctx.fillStyle = '#1919A6'; // Paredes
+                ctx.fillStyle = '#1919A6';
                 ctx.fillRect(x*TILE, y*TILE, TILE, TILE);
             } else if(map[y][x] === 0) {
-                ctx.fillStyle = '#fff'; // Comida
+                ctx.fillStyle = '#FFB8AE';
                 ctx.beginPath();
                 ctx.arc(x*TILE + TILE/2, y*TILE + TILE/2, 2, 0, Math.PI*2);
                 ctx.fill();
@@ -62,61 +62,57 @@ function draw() {
         }
     }
 
+    // Dibujar Jugadores del Chat
     for(let id in players) {
         let p = players[id];
         ctx.fillStyle = p.color;
-        // Dibujo simple de Pacman
         ctx.beginPath();
-        ctx.arc(p.x*TILE + TILE/2, p.y*TILE + TILE/2, TILE/2 - 2, 0.2 * Math.PI, 1.8 * Math.PI);
+        ctx.arc(p.x*TILE + TILE/2, p.y*TILE + TILE/2, TILE/2 - 3, 0.2 * Math.PI, 1.8 * Math.PI);
         ctx.lineTo(p.x*TILE + TILE/2, p.y*TILE + TILE/2);
         ctx.fill();
-        // Nombre del usuario arriba del Pacman
-        ctx.fillStyle = "#fff";
-        ctx.font = "10px Arial";
-        ctx.fillText(id, p.x*TILE, p.y*TILE - 5);
+        
+        ctx.fillStyle = "#FFF";
+        ctx.font = "10px sans-serif";
+        ctx.textAlign = "center";
+        ctx.fillText(id, p.x*TILE + TILE/2, p.y*TILE - 5);
     }
     requestAnimationFrame(draw);
 }
 
-function handleCommand(user, cmd) {
+function move(user, dir) {
     if(!players[user]) {
-        players[user] = { x: 1, y: 1, color: `hsl(${Math.random()*360}, 80%, 60%)` };
+        players[user] = { x: 1, y: 1, color: `hsl(${Math.random()*360}, 100%, 50%)` };
     }
-    
     let p = players[user];
-    let oldX = p.x;
-    let oldY = p.y;
+    let nX = p.x, nY = p.y;
 
-    if(cmd.includes('arriba')) p.y--;
-    if(cmd.includes('abajo')) p.y++;
-    if(cmd.includes('izquierda')) p.x--;
-    if(cmd.includes('derecha')) p.x++;
+    if(dir.includes('arriba')) nY--;
+    if(dir.includes('abajo')) nY++;
+    if(dir.includes('izquierda')) nX--;
+    if(dir.includes('derecha')) nX++;
 
-    if(map[p.y] && map[p.y][p.x] === 1 || p.y < 0 || p.x < 0) {
-        p.x = oldX; p.y = oldY;
-    }
-
-    if(map[p.y] && map[p.y][p.x] === 0) {
-        map[p.y][p.x] = 2;
-        score += 10;
-        scoreVal.innerText = score;
+    if(map[nY] && map[nY][nX] !== 1) {
+        p.x = nX; p.y = nY;
+        if(map[p.y][p.x] === 0) map[p.y][p.x] = 2;
     }
 }
 
-// INTEGRACIÓN MELD STUDIO
+// ESCUCHA REAL DE MELD STUDIO
 window.addEventListener('load', () => {
-    statusText.innerText = "Conectado a Meld";
-    
-    // Escuchar mensajes del chat de YouTube
     if (window.Meld) {
         Meld.on('message', (data) => {
-            const msg = data.text.toLowerCase();
-            statusText.innerText = "Último: " + data.username;
+            const msg = data.text.toLowerCase().trim();
+            const user = data.username;
             
+            // Log visual para que el streamer vea qué llega
+            logPanel.innerHTML = `[${user}]: ${msg}<br>` + logPanel.innerHTML;
+
             if(['arriba', 'abajo', 'izquierda', 'derecha'].some(d => msg.includes(d))) {
-                handleCommand(data.username, msg);
+                move(user, msg);
             }
         });
+    } else {
+        logPanel.innerText = "Error: Meld no detectado.";
     }
 });
 
