@@ -2,17 +2,21 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <title>BrixsDNA Pacman - Final Sync</title>
+    <title>BrixsDNA Pacman - Browser Source</title>
     <script src="https://cdn.jsdelivr.net/npm/@meldstudio/elements-api@latest"></script>
     <style>
-        body { margin: 0; overflow: hidden; background: transparent; font-family: sans-serif; }
+        body { margin: 0; overflow: hidden; background: transparent; font-family: monospace; }
         #wrapper { display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; }
-        canvas { background: #000; border: 3px solid #00FF00; border-radius: 10px; box-shadow: 0 0 15px #00FF00; }
-        #debug { color: #00FF00; background: rgba(0,0,0,0.8); padding: 5px; font-size: 11px; position: fixed; top: 0; width: 100%; text-align: center; }
+        canvas { background: #000; border: 3px solid #00FF00; border-radius: 10px; }
+        #status { 
+            position: fixed; top: 10px; color: #00FF00; 
+            background: rgba(0,0,0,0.8); padding: 5px 10px; 
+            font-size: 12px; border: 1px solid #00FF00;
+        }
     </style>
 </head>
 <body>
-    <div id="debug">ESPERANDO SEÑAL DE MELD...</div>
+    <div id="status">INICIALIZANDO...</div>
     <div id="wrapper">
         <canvas id="game"></canvas>
     </div>
@@ -20,7 +24,7 @@
 <script>
 const canvas = document.getElementById('game');
 const ctx = canvas.getContext('2d');
-const debug = document.getElementById('debug');
+const statusDiv = document.getElementById('status');
 
 const TILE = 24;
 const map = [[1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],[1,0,0,0,0,0,1,0,0,0,0,0,0,0,1],[1,0,1,1,0,0,1,0,1,1,1,0,1,0,1],[1,0,0,0,0,0,0,0,0,0,0,0,0,0,1],[1,1,1,0,1,1,0,1,1,0,1,1,1,1,1],[1,0,0,0,0,0,0,0,0,0,0,0,0,0,1],[1,1,1,1,1,1,1,1,1,1,1,1,1,1,1]];
@@ -37,41 +41,50 @@ function draw() {
     }
     for(let id in players) {
         let p = players[id];
-        ctx.fillStyle = p.color; ctx.beginPath(); ctx.arc(p.x*TILE+TILE/2, p.y*TILE+TILE/2, TILE/2-2, 0.2*Math.PI, 1.8*Math.PI);
+        ctx.fillStyle = p.color; ctx.beginPath(); 
+        ctx.arc(p.x*TILE+TILE/2, p.y*TILE+TILE/2, TILE/2-2, 0.2*Math.PI, 1.8*Math.PI);
         ctx.lineTo(p.x*TILE+TILE/2, p.y*TILE+TILE/2); ctx.fill();
         ctx.fillStyle = "#00FF00"; ctx.font = "bold 10px sans-serif"; ctx.fillText(id, p.x*TILE, p.y*TILE-5);
     }
     requestAnimationFrame(draw);
 }
 
-function move(user, text) {
+window.moveUser = function(user, text) {
     const msg = text.toLowerCase().trim();
-    debug.innerText = `CHAT: ${user} dice ${msg}`;
+    statusDiv.innerText = `CHAT ACTIVO: ${user.toUpperCase()}`;
+    
     if(!players[user]) players[user] = { x: 1, y: 1, color: `hsl(${Math.random()*360}, 100%, 50%)` };
     let p = players[user], old = {x: p.x, y: p.y};
-    if(msg.includes('arriba')) p.y--; else if(msg.includes('abajo')) p.y++;
-    else if(msg.includes('izquierda')) p.x--; else if(msg.includes('derecha')) p.x++;
+    
+    if(msg.includes('arriba')) p.y--; 
+    else if(msg.includes('abajo')) p.y++;
+    else if(msg.includes('izquierda')) p.x--; 
+    else if(msg.includes('derecha')) p.x++;
+    
     if(map[p.y] && map[p.y][p.x] === 1 || p.y < 0 || p.x < 0) { p.x = old.x; p.y = old.y; }
     if(map[p.y] && map[p.y][p.x] === 0) map[p.y][p.x] = 2;
+};
+
+// --- EL SECRETO PARA EL BROWSER SOURCE ---
+function startMeld() {
+    if (window.Meld) {
+        statusDiv.innerText = "MELD CONECTADO - ESPERANDO CHAT";
+        Meld.on('message', (data) => {
+            window.moveUser(data.username, data.text);
+        });
+    } else {
+        // Si no detecta la librería, reintenta cada segundo
+        setTimeout(startMeld, 1000);
+    }
 }
 
-// CONEXIÓN NATIVA REFORZADA
-if (typeof Meld !== 'undefined') {
-    Meld.on('message', (data) => {
-        move(data.username, data.text);
-    });
-    debug.innerText = "LIBRERÍA MELD DETECTADA - LISTO";
-}
-
-// ESCUCHA DE RESPALDO (Eventos de Browser)
-window.addEventListener('meldMessage', (e) => move(e.detail.username, e.detail.text));
-
-// TECLADO (Funciona porque ya diste clic en Meld)
+// Teclado (Flechas)
 window.addEventListener('keydown', (e) => {
-    const k = {ArrowUp:'arriba', ArrowDown:'abajo', ArrowLeft:'izquierda', ArrowRight:'derecha'}[e.key];
-    if(k) move('Streamer', k);
+    const keys = {ArrowUp:'arriba', ArrowDown:'abajo', ArrowLeft:'izquierda', ArrowRight:'derecha'};
+    if(keys[e.key]) window.moveUser('Streamer', keys[e.key]);
 });
 
+startMeld();
 draw();
 </script>
 </body>
